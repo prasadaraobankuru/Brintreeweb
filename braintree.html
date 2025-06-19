@@ -19,34 +19,32 @@
   <script>
     async function initializeBraintree() {
   try {
-    const response = await fetch("http://10.1.10.10:9093/dx-sync/api/checkouts/client-token", {
-      method: "GET", // or "POST" if your API expects it
-      headers: {
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "appId": "8b1a2963-3c28-35b4-9c9a-8a15ffc8dea2",
-        "correlationId": "90bd18bd-fcbd-4377-85dc-556bc83b2bd9",
-        "destination": "BraintreePGW",
-        "operation": "clientToken",
-        "source": "Selfcare",
-        "srDate": "1750251193611",
-        "tenancyId": "SP_ALDIMOBILE_AUS"
-      }
-    });
+  //   const response = await fetch("http://10.1.10.10:9093/dx-sync/api/checkouts/client-token", {
+  //     method: "GET", // or "POST" if your API expects it
+  //     headers: {
+  //       "Accept": "application/json, text/plain, */*",
+  //       "Accept-Language": "en-US,en;q=0.9",
+  //       "appId": "8b1a2963-3c28-35b4-9c9a-8a15ffc8dea2",
+  //       "correlationId": "90bd18bd-fcbd-4377-85dc-556bc83b2bd9",
+  //       "destination": "BraintreePGW",
+  //       "operation": "clientToken",
+  //       "source": "Selfcare",
+  //       "srDate": "1750251193611",
+  //       "tenancyId": "SP_ALDIMOBILE_AUS"
+  //     }
+  //   });
 
-    const json = await response.json();
-    if(json.response.success =='true'){
-    var clientToken = json.response.result.clientToken;
-  console.log("testt")
-    }
+  //   const json = await response.json();
+  //   if(json.response.success =='true'){
+  //   var clientToken = json.response.result.clientToken;
+  // console.log("testt")
+  //   }
 
     braintree.dropin.create({
-      authorization: clientToken,
+      authorization: "sandbox_38zsjnr9_ydwkdrfr4jvvhf98",
       container: '#dropin-container',
       paypal: {
-        flow: 'checkout',
-        amount: '10.00',
-        currency: 'USD'
+        flow: 'vault',
       },
       paypalCredit: true
     }, function (createErr, instance) {
