@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Braintree Drop-in</title>
+  <script src="https://js.braintreegateway.com/web/dropin/1.40.1/js/dropin.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    #dropin-container { margin-top: 20px; }
+    #submit-button { margin-top: 20px; padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Braintree Payment (Card + PayPal)</h2>
+  <div id="dropin-container"></div>
+  <button id="submit-button">Pay</button>
+
+  <script>
+    async function initializeBraintree() {
+  try {
+    const response = await fetch("http://10.1.10.10:9093/dx-sync/api/checkouts/client-token", {
+      method: "GET", // or "POST" if your API expects it
+      headers: {
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+        "appId": "8b1a2963-3c28-35b4-9c9a-8a15ffc8dea2",
+        "correlationId": "90bd18bd-fcbd-4377-85dc-556bc83b2bd9",
+        "destination": "BraintreePGW",
+        "operation": "clientToken",
+        "source": "Selfcare",
+        "srDate": "1750251193611",
+        "tenancyId": "SP_ALDIMOBILE_AUS"
+      }
+    });
+
+    const json = await response.json();
+    if(json.response.success =='true'){
+    var clientToken = json.response.result.clientToken;
+  console.log("testt")
+    }
+
+    braintree.dropin.create({
+      authorization: clientToken,
+      container: '#dropin-container',
+      paypal: {
+        flow: 'checkout',
+        amount: '10.00',
+        currency: 'USD'
+      },
+      paypalCredit: true
+    }, function (createErr, instance) {
+      if (createErr) {
+        console.error('Drop-in error:', createErr);
+        alert("Failed to initialize payment UI");
+        return;
+      }
+
+      document.getElementById('submit-button').addEventListener('click', function () {
+        instance.requestPaymentMethod(function (err, payload) {
+          if (err) {
+            console.error('Payment error:', err);
+            alert("Payment method error");
+            return;
+          }
+
+          const nonce = payload.nonce;
+          console.log('Payment Nonce:', nonce);
+
+          if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler('paymentHandler', nonce);
+          } else {
+            alert("Nonce: " + nonce);
+          }
+        });
+      });
+    });
+  } catch (e) {
+    console.error("Client token fetch failed", e);
+    alert("Unable to initialize Braintree");
+  }
+}
+
+    window.onload = initializeBraintree;
+  </script>
+</body>
+</html>
