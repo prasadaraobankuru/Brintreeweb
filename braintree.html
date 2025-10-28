@@ -5,25 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Braintree PayPal PopupBridge</title>
 
-  <!-- Braintree SDKs -->
   <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
   <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
   <script src="https://www.paypalobjects.com/api/checkout.js"></script>
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f7f8fa;
-      text-align: center;
-      margin-top: 50px;
-    }
-  </style>
 </head>
 <body>
   <h3>Redirecting to PayPal...</h3>
 
   <script>
-    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98"; // replace with your own client token
+    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98"; // replace with your token
     const paymentAmount = "10.00";
     const paymentCurrency = "USD";
 
@@ -40,7 +30,6 @@
             return;
           }
 
-          // Create the PayPal payment
           paypalCheckoutInstance.createPayment({
             flow: "checkout",
             amount: paymentAmount,
@@ -51,12 +40,10 @@
               return;
             }
 
-            // Automatically start PayPal flow using PopupBridge
+            // ✅ Automatically trigger PopupBridge flow
             if (window.popupBridge) {
-              // ✅ This triggers the native PopupBridge WebView flow
               window.popupBridge.open(token);
             } else {
-              // fallback: open in browser
               window.location.href = token;
             }
           });
@@ -64,7 +51,6 @@
       });
     }
 
-    // Run automatically when page loads
     window.onload = startPayPalCheckout;
   </script>
 </body>
