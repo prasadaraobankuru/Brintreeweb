@@ -3,45 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braintree PayPal PopupBridge</title>
+  <title>Braintree PayPal PopupBridge Auto Checkout</title>
 
   <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
   <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
   <script src="https://www.paypalobjects.com/api/checkout.js"></script>
+
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: Arial, sans-serif;
+      background: #f8f8f8;
+    }
+    #loading {
+      font-size: 18px;
+      color: #444;
+    }
+  </style>
 </head>
 <body>
-  <h3>Braintree PayPal PopupBridge Checkout</h3>
-  <div id="paypal-button"></div>
+  <div id="loading">Opening PayPal Checkout...</div>
 
   <script>
-    // Replace with your sandbox token from Braintree Control Panel
     const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
 
     braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-      if (err) { console.error(err); return; }
+      if (err) {
+        console.error("Error creating client:", err);
+        document.body.innerHTML = "<p>Client error</p>";
+        return;
+      }
 
       braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-        if (err) { console.error(err); return; }
+        if (err) {
+          console.error("Error creating PayPal checkout:", err);
+          document.body.innerHTML = "<p>PayPal init error</p>";
+          return;
+        }
 
-        paypal.Button.render({
-          env: 'sandbox',
-          payment: function () {
-            return paypalCheckoutInstance.createPayment({
-              flow: 'checkout',
-              amount: '10.00',
-              currency: 'USD'
-            });
-          },
-          onAuthorize: function (data, actions) {
-            return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-              if (err) { console.error(err); return; }
-              if (window.popupBridge) {
-                window.popupBridge.send(payload.nonce);
-              }
-              alert("Payment complete! Nonce: " + payload.nonce);
-            });
+        // Automatically trigger checkout flow
+        paypalCheckoutInstance.tokenize({
+          flow: 'checkout',
+          amount: '10.00',
+          currency: 'USD'
+        }, function (err, payload) {
+          if (err) {
+            console.error("PayPal flow error:", err);
+            document.body.innerHTML = "<p>Payment cancelled or failed.</p>";
+            return;
           }
-        }, '#paypal-button');
+
+          console.log("Nonce received:", payload.nonce);
+          if (window.popupBridge) {
+            window.popupBridge.send(payload.nonce);
+          }
+
+          document.body.innerHTML = `<p>✅ Payment Complete!</p>
+                                     <p>Nonce: ${payload.nonce}</p>`;
+        });
       });
     });
   </script>
