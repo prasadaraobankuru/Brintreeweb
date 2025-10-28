@@ -5,47 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Braintree PayPal PopupBridge</title>
 
+  <!-- Braintree SDKs -->
   <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
   <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
   <script src="https://www.paypalobjects.com/api/checkout.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f7f8fa;
+      text-align: center;
+      margin-top: 50px;
+    }
+  </style>
 </head>
 <body>
-  <h3>Processing PayPal Checkout...</h3>
+  <h3>Redirecting to PayPal...</h3>
 
   <script>
-    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98"; // Replace with your own
-
+    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98"; // replace with your own client token
     const paymentAmount = "10.00";
     const paymentCurrency = "USD";
 
-    braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-      if (err) return alert("Braintree client init failed");
+    function startPayPalCheckout() {
+      braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
+        if (err) {
+          alert("Error creating Braintree client: " + err);
+          return;
+        }
 
-      braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-        if (err) return alert("PayPal checkout init failed");
-
-        // ✅ Automatically trigger PayPal flow
-        paypal.Button.render({
-          env: "sandbox",
-          payment: function () {
-            return paypalCheckoutInstance.createPayment({
-              flow: "checkout",
-              amount: paymentAmount,
-              currency: paymentCurrency
-            });
-          },
-          onAuthorize: function (data) {
-            paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-              if (err) return alert("Payment failed");
-              if (window.popupBridge) {
-                window.popupBridge.send(payload.nonce);
-              }
-              alert("Payment complete! Nonce: " + payload.nonce);
-            });
+        braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
+          if (err) {
+            alert("Error creating PayPal checkout: " + err);
+            return;
           }
-        }, document.body);
+
+          // Create the PayPal payment
+          paypalCheckoutInstance.createPayment({
+            flow: "checkout",
+            amount: paymentAmount,
+            currency: paymentCurrency,
+          }, function (err, token) {
+            if (err) {
+              alert("Error creating payment: " + err);
+              return;
+            }
+
+            // Automatically start PayPal flow using PopupBridge
+            if (window.popupBridge) {
+              // ✅ This triggers the native PopupBridge WebView flow
+              window.popupBridge.open(token);
+            } else {
+              // fallback: open in browser
+              window.location.href = token;
+            }
+          });
+        });
       });
-    });
+    }
+
+    // Run automatically when page loads
+    window.onload = startPayPalCheckout;
   </script>
 </body>
 </html>
