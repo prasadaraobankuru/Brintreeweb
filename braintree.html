@@ -5,67 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Braintree PayPal PopupBridge</title>
 
-  <!-- Braintree & PayPal SDKs -->
   <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
   <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
   <script src="https://www.paypalobjects.com/api/checkout.js"></script>
 </head>
 <body>
   <h3>Processing PayPal Checkout...</h3>
-  <p>Please wait while we open PayPal...</p>
 
   <script>
-    // ✅ Replace with your actual sandbox client token from Braintree
-    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98"; // Replace with your own
 
-    // ✅ Static payment details
     const paymentAmount = "10.00";
     const paymentCurrency = "USD";
 
-    // Initialize Braintree client
     braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-      if (err) {
-        console.error("Client Error:", err);
-        alert("Braintree Client init failed");
-        return;
-      }
+      if (err) return alert("Braintree client init failed");
 
-      // Create PayPal checkout instance
       braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-        if (err) {
-          console.error("PayPal Checkout Error:", err);
-          alert("PayPal Checkout init failed");
-          return;
-        }
+        if (err) return alert("PayPal checkout init failed");
 
-        // ✅ Automatically start the PayPal flow when the page loads
-        paypalCheckoutInstance.createPayment({
-          flow: "checkout",
-          amount: paymentAmount,
-          currency: paymentCurrency
-        }, function (err, paymentId) {
-          if (err) {
-            console.error("Create Payment Error:", err);
-            alert("Unable to create payment");
-            return;
+        // ✅ Automatically trigger PayPal flow
+        paypal.Button.render({
+          env: "sandbox",
+          payment: function () {
+            return paypalCheckoutInstance.createPayment({
+              flow: "checkout",
+              amount: paymentAmount,
+              currency: paymentCurrency
+            });
+          },
+          onAuthorize: function (data) {
+            paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+              if (err) return alert("Payment failed");
+              if (window.popupBridge) {
+                window.popupBridge.send(payload.nonce);
+              }
+              alert("Payment complete! Nonce: " + payload.nonce);
+            });
           }
-
-          // ✅ Start PayPal checkout
-          paypalCheckoutInstance.tokenizePayment({ paymentID: paymentId }, function (err, payload) {
-            if (err) {
-              console.error("Tokenize Error:", err);
-              alert("Payment failed");
-              return;
-            }
-
-            // ✅ Send the nonce back to Flutter via PopupBridge
-            if (window.popupBridge) {
-              window.popupBridge.send(payload.nonce);
-            } else {
-              alert("PopupBridge not available.");
-            }
-          });
-        });
+        }, document.body);
       });
     });
   </script>
