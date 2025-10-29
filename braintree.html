@@ -1,70 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braintree PayPal PopupBridge</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Braintree PayPal PopupBridge (auto)</title>
 
-  <!-- Braintree SDK -->
+  <!-- PayPal JS SDK (modern) — replace client-id with your PayPal sandbox/live id -->
+  <script src="https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=USD"></script>
+
+  <!-- Braintree JS (client + paypal-checkout) -->
   <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
   <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
 
-  <!-- PayPal Checkout -->
-  <script src="https://www.paypalobjects.com/api/checkout.js"></script>
+  <!-- Popup Bridge helper (if you use the braintree popup-bridge JS) -->
+  <script src="https://js.braintreegateway.com/web/3.129.0/js/popup-bridge.min.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, "Segoe UI", Arial; text-align:center; padding:40px; }
+    #status { margin-top: 20px; color:#333; }
+  </style>
 </head>
 <body>
-  <h3 style="font-family:sans-serif; text-align:center; margin-top:40px;">
-    Redirecting to PayPal Secure Checkout...
-  </h3>
+  <h2>Opening PayPal...</h2>
+  <div id="status">Preparing checkout — please wait</div>
 
   <script>
-    // ✅ Replace with your real sandbox token
-    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+    // ---------- CONFIG ----------
+    const BRAINTREE_CLIENT_TOKEN = "YOUR_BRAINTREE_CLIENT_TOKEN"; // <--- replace
+    const AMOUNT = "10.00";
+    const CURRENCY = "USD";
+    // ---------- END CONFIG ----------
 
-    // Static payment info
-    const paymentAmount = "10.00";
-    const paymentCurrency = "USD";
+    function showStatus(msg) { document.getElementById('status').innerText = msg; }
 
-    braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-      if (err) {
-        alert("Error creating Braintree client: " + err);
+    // Initialize Braintree client
+    braintree.client.create({ authorization: BRAINTREE_CLIENT_TOKEN }, function (clientErr, clientInstance) {
+      if (clientErr) {
+        console.error("Braintree client.create error:", clientErr);
+        showStatus("Braintree init failed: " + (clientErr.message || clientErr));
         return;
       }
+      showStatus("Braintree client created — initializing PayPalCheckout...");
 
-      braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-        if (err) {
-          alert("Error creating PayPal Checkout: " + err);
+      // Create paypalCheckout instance
+      braintree.paypalCheckout.create({ client: clientInstance }, function (payErr, paypalCheckoutInstance) {
+        if (payErr) {
+          console.error("braintree.paypalCheckout.create error:", payErr);
+          showStatus("PayPalCheckout init failed: " + (payErr.message || payErr));
           return;
         }
 
-        // ✅ Automatically trigger PayPal flow (no button)
-        paypalCheckoutInstance.createPayment({
-          flow: 'checkout',
-          amount: paymentAmount,
-          currency: paymentCurrency
-        }).then(function (paymentID) {
-          // Open PayPal window (PopupBridge will handle the redirect)
-          paypalCheckoutInstance.startPayment(paymentID);
-        }).catch(function (err) {
-          alert("PayPal start error: " + err);
-        });
+        showStatus("PayPalCheckout ready — loading PayPal Buttons...");
 
-        // ✅ Handle authorization
-        window.onAuthorize = function (data) {
-          paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-            if (err) {
-              alert("Tokenization failed: " + err);
-              return;
-            }
+        // Ensure PayPal JS SDK is present — then render buttons (hidden) and auto-click
+        // Use the PayPal Buttons integration but let Braintree create the payment
+        paypal.Buttons({
+          style: { layout: 'vertical', tagline: false, height: 38 },
+          fundingSource: paypal.FUNDING.PAYPAL,
 
-            // Send nonce to Android via PopupBridge
-            if (window.popupBridge && payload.nonce) {
-              window.popupBridge.send(payload.nonce);
+          // When PayPal Buttons needs an order/payment id, call braintree to create a payment
+          createOrder: function () {
+            showStatus("Creating PayPal payment...");
+            return paypalCheckoutInstance.createPayment({
+              flow: 'checkout',
+              amount: AMOUNT,
+              currency: CURRENCY,
+            });
+          },
+
+          // When the user approves in PayPal UI, tokenize the payment with Braintree
+          onApprove: function (data) {
+            showStatus("Authorizing...");
+
+            return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+              if (err) {
+                console.error("tokenizePayment error:", err);
+                showStatus("Tokenization failed: " + (err.message || err));
+                return;
+              }
+
+              showStatus("Payment success — sending nonce to app");
+
+              // payload.nonce is the tokenized payment method
+              // Send it to native using PopupBridge (or fallback to location redirect)
+              if (window.popupBridge && typeof window.popupBridge.send === "function") {
+                try {
+                  // send JSON string to native
+                  window.popupBridge.send(JSON.stringify(payload));
+                } catch (e) {
+                  console.warn("popupBridge.send failed:", e);
+                  // fallback redirect (deep link) with nonce param
+                  window.location.href = "com.example.aldimobile://paypal?nonce=" + encodeURIComponent(payload.nonce);
+                }
+              } else {
+                // fallback — redirect to deep link that Android will capture
+                window.location.href = "com.example.aldimobile://paypal?nonce=" + encodeURIComponent(payload.nonce);
+              }
+            });
+          },
+
+          onCancel: function () {
+            showStatus("Payment cancelled by user");
+            if (window.popupBridge && typeof window.popupBridge.send === "function") {
+              window.popupBridge.send(JSON.stringify({ cancelled: true }));
             } else {
-              alert("Payment complete! Nonce: " + payload.nonce);
+              window.location.href = "com.example.aldimobile://paypal?cancelled=true";
             }
-          });
-        };
+          },
+
+          onError: function (err) {
+            console.error("PayPal Buttons onError:", err);
+            showStatus("PayPal error: " + (err && err.message ? err.message : err));
+            if (window.popupBridge && typeof window.popupBridge.send === "function") {
+              window.popupBridge.send(JSON.stringify({ error: err && err.message ? err.message : String(err) }));
+            } else {
+              window.location.href = "com.example.aldimobile://paypal?error=" + encodeURIComponent(err && err.message ? err.message : String(err));
+            }
+          }
+
+        }).render(document.body).then(function () {
+          showStatus("Launching PayPal (you may see a popup)...");
+
+          // Auto-click the rendered PayPal button to open checkout in popup-bridge
+          // The PayPal button is rendered as an iframe or button - try to find an actionable element
+          setTimeout(function () {
+            // First try to find the button element created by PayPal (standard)
+            const btn = document.querySelector('iframe[src*="paypal.com"]') || document.querySelector('button');
+            if (btn) {
+              // If iframe exists, we can't click it directly; but rendering the Buttons will already have wired the popup.
+              // If a button exists, trigger click.
+              try {
+                btn.click();
+              } catch (e) {
+                // ignore; the PayPal integration should already open the popup
+              }
+            }
+          }, 600);
+        }).catch(function (err) {
+          console.error("render error:", err);
+          showStatus("PayPal render failed: " + (err && err.message ? err.message : err));
+        });
       });
     });
   </script>
