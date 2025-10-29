@@ -762,11 +762,14 @@
         }
       }
       // 🔹 Send nonce
-      function sendNonce(nonce) {
-        if (window.flutter_inappwebview) {
-          window.flutter_inappwebview.callHandler("paymentHandler", nonce);
-        }
-      }
+   function sendNonce(nonce) {
+  if (window.flutter_inappwebview) {
+    window.flutter_inappwebview.callHandler("paymentHandler", nonce);
+  } else if (window.AndroidBridge) {
+    window.AndroidBridge.onPaymentNonce(nonce); // ✅ For native WebView
+  }
+}
+
 
       // 🔹 Tokenize Card
       function tokenizeCard() {
