@@ -2,62 +2,40 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Braintree PayPal Checkout</title>
+    <title>PayPal Auto Launch</title>
     <script src="https://js.braintreegateway.com/web/3.96.0/js/client.min.js"></script>
     <script src="https://js.braintreegateway.com/web/3.96.0/js/paypal-checkout.min.js"></script>
-    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=USD"></script>
   </head>
   <body>
-    <h3>Redirecting to PayPal...</h3>
-    <div id="paypal-button"></div>
+    <h3>Opening PayPal...</h3>
 
     <script>
-      const authorization = "sandbox_8yrzsvtm_s2bg8fs563crhqzk"; // Sandbox client token
+      const authorization = "sandbox_8yrzsvtm_s2bg8fs563crhqzk"; // your sandbox client token
       const amount = "10.00";
       const currency = "USD";
 
       braintree.client.create({ authorization }, function (err, clientInstance) {
         if (err) {
-          console.error("Client error:", err);
+          alert("Braintree client failed");
           return;
         }
 
         braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
           if (err) {
-            console.error("PayPal Checkout Error:", err);
+            alert("PayPal init failed");
             return;
           }
 
-          paypal.Buttons({
-            createOrder: function () {
-              return paypalCheckoutInstance.createPayment({
-                flow: "checkout",
-                amount: amount,
-                currency: currency,
-              });
-            },
-            onApprove: function (data, actions) {
-              return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-                if (err) {
-                  console.error("Tokenize Error:", err);
-                  return;
-                }
-                alert("Payment success! Nonce: " + payload.nonce);
-              });
-            },
-            onCancel: function () {
-              alert("Payment canceled.");
-            },
-            onError: function (err) {
-              console.error("PayPal Error:", err);
-            },
-          }).render("#paypal-button");
-
-          // ✅ Auto-click PayPal
-          setTimeout(() => {
-            const btn = document.querySelector("iframe") || document.querySelector("button");
-            if (btn) btn.click();
-          }, 1000);
+          // ✅ Trigger PayPal immediately
+          paypalCheckoutInstance.createPayment({
+            flow: "checkout",
+            amount: amount,
+            currency: currency,
+          }).then(function (paymentID) {
+            paypalCheckoutInstance.startPayment({ paymentID: paymentID });
+          }).catch(function (err) {
+            alert("Error starting PayPal: " + err.message);
+          });
         });
       });
     </script>
