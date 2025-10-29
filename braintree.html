@@ -37,7 +37,7 @@
                   return paypalCheckoutInstance.createPayment({
                     flow: "checkout",
                     amount: amount,
-                    currency: currency
+                    currency: currency,
                   });
                 },
                 onAuthorize: function (data) {
@@ -49,19 +49,20 @@
 
                     alert("Payment complete! Nonce: " + payload.nonce);
 
-                    // ✅ Send nonce back to Android via custom URL scheme
-                    window.location.href =
+                    // ✅ FIX: use window.top to redirect parent page (main WebView)
+                    window.top.location.href =
                       "com.example.aldimobile://paypal?nonce=" + encodeURIComponent(payload.nonce);
                   });
                 },
                 onCancel: function () {
                   alert("Payment cancelled");
-                  window.location.href = "com.example.aldimobile://paypal?cancelled=true";
+                  window.top.location.href = "com.example.aldimobile://paypal?cancelled=true";
                 },
                 onError: function (err) {
                   alert("Error: " + err);
-                  window.location.href = "com.example.aldimobile://paypal?error=" + encodeURIComponent(err);
-                }
+                  window.top.location.href =
+                    "com.example.aldimobile://paypal?error=" + encodeURIComponent(err);
+                },
               },
               document.body
             );
