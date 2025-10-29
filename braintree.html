@@ -10,7 +10,7 @@
   <script src="https://www.paypalobjects.com/api/checkout.js"></script>
 </head>
 <body>
-  <h3>Redirecting to PayPal...</h3>
+  <h3>Processing PayPal Checkout...</h3>
 
   <script>
     const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
@@ -29,19 +29,39 @@
           return;
         }
 
-        paypalCheckoutInstance.tokenizePayment = paypalCheckoutInstance.tokenizePayment || function (data, callback) {
-          callback(null, { nonce: "FAKE_NONCE_EXAMPLE" });
-        };
+        // ✅ Let PopupBridge handle the popup
+        paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
+          paypal.Button.render({
+            env: "sandbox",
+            payment: function () {
+              return paypalCheckoutInstance.createPayment({
+                flow: "checkout",
+                amount: amount,
+                currency: currency
+              });
+            },
+            onAuthorize: function (data, actions) {
+              paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+                if (err) {
+                  alert("Tokenization failed: " + err);
+                  return;
+                }
 
-        paypalCheckoutInstance.createPayment({
-          flow: "checkout",
-          amount,
-          currency
-        }).then(function (paymentId) {
-          // Automatically redirect to PayPal URL
-          window.location.href = "https://www.sandbox.paypal.com/checkoutnow?token=" + paymentId;
-        }).catch(function (err) {
-          alert("Error starting PayPal: " + err.message);
+                // ✅ Send nonce to PopupBridge (Android)
+                if (window.popupBridge) {
+                  window.popupBridge.send(JSON.stringify(payload));
+                }
+
+                alert("Payment complete! Nonce: " + payload.nonce);
+              });
+            },
+            onCancel: function () {
+              alert("Payment cancelled");
+            },
+            onError: function (err) {
+              alert("Error: " + err);
+            }
+          }, document.body);
         });
       });
     });
