@@ -1,73 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braintree PayPal Checkout</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Braintree PayPal Checkout</title>
 
-  <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
-  <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
-  <script src="https://www.paypalobjects.com/api/checkout.js"></script>
-</head>
-<body>
-  <h3>Processing PayPal Checkout...</h3>
+    <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
+    <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
+    <script src="https://www.paypalobjects.com/api/checkout.js"></script>
+  </head>
+  <body>
+    <h3>Processing PayPal Checkout...</h3>
 
-  <script>
-  const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
-  const amount = "10.00";
-  const currency = "USD";
+    <script>
+      const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+      const amount = "10.00";
+      const currency = "USD";
 
-  braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-    if (err) {
-      alert("Client init failed");
-      return;
-    }
+      braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
+        if (err) {
+          alert("Client init failed");
+          return;
+        }
 
-    braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-      if (err) {
-        alert("PayPal init failed");
-        return;
-      }
-
-      paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
-        paypal.Button.render({
-          env: "sandbox",
-          payment: function () {
-            return paypalCheckoutInstance.createPayment({
-              flow: "checkout",
-              amount: amount,
-              currency: currency
-            });
-          },
-          onAuthorize: function (data) {
-            paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-              if (err) {
-                alert("Tokenization failed: " + err);
-                return;
-              }
-
-              alert("✅ Payment complete! Nonce: " + payload.nonce);
-
-              // ✅ Correct PopupBridge callback to Android
-              if (window.popupBridge && window.popupBridge.onComplete) {
-                window.popupBridge.onComplete({
-                  path: "/checkout",
-                  queryItems: { nonce: payload.nonce }
-                });
-              }
-            });
-          },
-          onCancel: function () {
-            alert("Payment cancelled");
-          },
-          onError: function (err) {
-            alert("Error: " + err);
+        braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
+          if (err) {
+            alert("PayPal init failed");
+            return;
           }
-        }, document.body);
-      });
-    });
-  });
-</script>
 
-</body>
+          paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
+            paypal.Button.render(
+              {
+                env: "sandbox",
+                payment: function () {
+                  return paypalCheckoutInstance.createPayment({
+                    flow: "checkout",
+                    amount: amount,
+                    currency: currency
+                  });
+                },
+                onAuthorize: function (data) {
+                  paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+                    if (err) {
+                      alert("Tokenization failed: " + err);
+                      return;
+                    }
+
+                    alert("Payment complete! Nonce: " + payload.nonce);
+
+                    // ✅ Send to Android via PopupBridge
+                    if (window.popupBridge) {
+                      window.popupBridge.send(JSON.stringify(payload));
+                    } else {
+                      window.location.href = "com.example.aldimobile://paypal?nonce=" + payload.nonce;
+                    }
+                  });
+                },
+                onCancel: function () {
+                  alert("Payment cancelled");
+                },
+                onError: function (err) {
+                  alert("Error: " + err);
+                }
+              },
+              document.body
+            );
+          });
+        });
+      });
+    </script>
+  </body>
 </html>
