@@ -49,19 +49,18 @@
 
                     alert("Payment complete! Nonce: " + payload.nonce);
 
-                    // ✅ Send to Android via PopupBridge
-                    if (window.popupBridge) {
-                      window.popupBridge.send(JSON.stringify(payload));
-                    } else {
-                      window.location.href = "com.example.aldimobile://paypal?nonce=" + payload.nonce;
-                    }
+                    // ✅ Send nonce back to Android via custom URL scheme
+                    window.location.href =
+                      "com.example.aldimobile://paypal?nonce=" + encodeURIComponent(payload.nonce);
                   });
                 },
                 onCancel: function () {
                   alert("Payment cancelled");
+                  window.location.href = "com.example.aldimobile://paypal?cancelled=true";
                 },
                 onError: function (err) {
                   alert("Error: " + err);
+                  window.location.href = "com.example.aldimobile://paypal?error=" + encodeURIComponent(err);
                 }
               },
               document.body
