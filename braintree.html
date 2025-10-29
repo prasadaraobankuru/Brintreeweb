@@ -13,58 +13,61 @@
   <h3>Processing PayPal Checkout...</h3>
 
   <script>
-    const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
-    const amount = "10.00";
-    const currency = "USD";
+  const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+  const amount = "10.00";
+  const currency = "USD";
 
-    braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
+  braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
+    if (err) {
+      alert("Client init failed");
+      return;
+    }
+
+    braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
       if (err) {
-        alert("Client init failed");
+        alert("PayPal init failed");
         return;
       }
 
-      braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-        if (err) {
-          alert("PayPal init failed");
-          return;
-        }
+      paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
+        paypal.Button.render({
+          env: "sandbox",
+          payment: function () {
+            return paypalCheckoutInstance.createPayment({
+              flow: "checkout",
+              amount: amount,
+              currency: currency
+            });
+          },
+          onAuthorize: function (data) {
+            paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+              if (err) {
+                alert("Tokenization failed: " + err);
+                return;
+              }
 
-        // ✅ Let PopupBridge handle the popup
-        paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
-          paypal.Button.render({
-            env: "sandbox",
-            payment: function () {
-              return paypalCheckoutInstance.createPayment({
-                flow: "checkout",
-                amount: amount,
-                currency: currency
-              });
-            },
-            onAuthorize: function (data, actions) {
-              paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-                if (err) {
-                  alert("Tokenization failed: " + err);
-                  return;
-                }
+              alert("✅ Payment complete! Nonce: " + payload.nonce);
 
-                // ✅ Send nonce to PopupBridge (Android)
-                if (window.popupBridge) {
-                  window.popupBridge.send(JSON.stringify(payload));
-                }
-
-                alert("Payment complete! Nonce: " + payload.nonce);
-              });
-            },
-            onCancel: function () {
-              alert("Payment cancelled");
-            },
-            onError: function (err) {
-              alert("Error: " + err);
-            }
-          }, document.body);
-        });
+              // ✅ Correct PopupBridge callback to Android
+              if (window.popupBridge && window.popupBridge.onComplete) {
+                window.popupBridge.onComplete({
+                  path: "/checkout",
+                  queryItems: { nonce: payload.nonce }
+                });
+              }
+            });
+          },
+          onCancel: function () {
+            alert("Payment cancelled");
+          },
+          onError: function (err) {
+            alert("Error: " + err);
+          }
+        }, document.body);
       });
     });
-  </script>
+  });
+</script>
+
 </body>
 </html>
