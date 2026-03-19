@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "au.com.aldimobile.android",
+      "sha256_cert_fingerprints": [
+        "5C:D8:3E:BC:A0:6E:83:CE:A9:1A:BF:1C:95:4B:B2:B6:62:17:CB:1E:CF:49:E2:17:EC:79:A8:6A:E1:83:ED:DF"
+      ]
+    }
+  }
+]
