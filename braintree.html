@@ -1,74 +1,175 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Braintree PayPal Checkout</title>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Braintree Payment UI</title>
 
-    <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
-    <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
-    <script src="https://www.paypalobjects.com/api/checkout.js"></script>
-  </head>
-  <body>
-    <h3>Processing PayPal Checkout...</h3>
+  <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.129.0/js/hosted-fields.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
 
-    <script>
-      const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
-      const amount = "10.00";
-      const currency = "USD";
+  <style>
+    body { font-family: Arial; padding: 16px; background: #ffc800; }
+    .field { margin-bottom: 10px; }
+    .box { border: 1px solid #ccc; padding: 10px; border-radius: 6px; background: #fff; }
+    button { padding: 12px; width: 100%; background: #00539b; color: white; border: none; border-radius: 6px; }
+    h3 { color: #002e6d; }
+  </style>
+</head>
 
-      braintree.client.create({ authorization: clientToken }, function (err, clientInstance) {
-        if (err) {
-          alert("Client init failed");
-          return;
-        }
+<body>
 
-        braintree.paypalCheckout.create({ client: clientInstance }, function (err, paypalCheckoutInstance) {
-          if (err) {
-            alert("PayPal init failed");
-            return;
+<h3>Payment</h3>
+
+<!-- CARD -->
+<div>
+  <h4>Card</h4>
+  <div id="card-number" class="box"></div>
+  <div id="expiration-date" class="box"></div>
+  <div id="cvv" class="box"></div>
+  <br/>
+  <button onclick="tokenizeCard()">Pay with Card</button>
+</div>
+
+<hr/>
+
+<!-- PAYPAL -->
+<div>
+  <h4>PayPal</h4>
+  <div id="paypal-button"></div>
+</div>
+
+<script>
+
+  // ✅ STATIC TOKEN (TEST ONLY)
+  const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+
+  let hostedFieldsInstance;
+
+  // ✅ REDIRECT FUNCTION
+  function redirectToApp(status, nonce) {
+    const url =
+      "myapp://payment-result?status=" +
+      encodeURIComponent(status) +
+      "&nonce=" +
+      encodeURIComponent(nonce || "");
+
+    window.location.href = url;
+  }
+
+  // ======================
+  // INIT BRAINTREE
+  // ======================
+  braintree.client.create({
+    authorization: clientToken
+  }, function (err, clientInstance) {
+
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    // ======================
+    // CARD
+    // ======================
+    braintree.hostedFields.create({
+      client: clientInstance,
+      styles: {
+        input: { 'font-size': '16px' }
+      },
+      fields: {
+        number: { selector: '#card-number', placeholder: 'Card Number' },
+        expirationDate: { selector: '#expiration-date', placeholder: 'MM/YY' },
+        cvv: { selector: '#cvv', placeholder: 'CVV' }
+      }
+    }, function (err, hfInstance) {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      hostedFieldsInstance = hfInstance;
+    });
+
+    // ======================
+    // PAYPAL
+    // ======================
+    braintree.paypalCheckout.create({
+      client: clientInstance
+    }, function (err, paypalCheckoutInstance) {
+
+      if (err) {
+        console.error(err);
+        return;
+      }
+
+      paypalCheckoutInstance.loadPayPalSDK(function () {
+
+        paypal.Buttons({
+
+          createOrder: function () {
+            return paypalCheckoutInstance.createPayment({
+              flow: 'checkout',
+              amount: '10.00',
+              currency: 'USD'
+            });
+          },
+
+          onApprove: function (data) {
+            return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
+
+              if (err) {
+                console.error(err);
+                redirectToApp("failed", "");
+                return;
+              }
+
+              // ✅ SUCCESS
+              redirectToApp("success", payload.nonce);
+            });
+          },
+
+          onCancel: function () {
+            redirectToApp("cancel", "");
+          },
+
+          onError: function (err) {
+            console.error(err);
+            redirectToApp("failed", "");
           }
 
-          paypalCheckoutInstance.loadPayPalSDK({ currency: currency }, function () {
-            paypal.Button.render(
-              {
-                env: "sandbox",
-                payment: function () {
-                  return paypalCheckoutInstance.createPayment({
-                    flow: "checkout",
-                    amount: amount,
-                    currency: currency,
-                  });
-                },
-                onAuthorize: function (data) {
-                  paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
-                    if (err) {
-                      alert("Tokenization failed: " + err);
-                      return;
-                    }
+        }).render('#paypal-button');
 
-                    alert("Payment complete! Nonce: " + payload.nonce);
-
-                    // ✅ FIX: use window.top to redirect parent page (main WebView)
-                    window.top.location.href =
-                      "com.example.aldimobile://paypal?nonce=" + encodeURIComponent(payload.nonce);
-                  });
-                },
-                onCancel: function () {
-                  alert("Payment cancelled");
-                  window.top.location.href = "com.example.aldimobile://paypal?cancelled=true";
-                },
-                onError: function (err) {
-                  alert("Error: " + err);
-                  window.top.location.href =
-                    "com.example.aldimobile://paypal?error=" + encodeURIComponent(err);
-                },
-              },
-              document.body
-            );
-          });
-        });
       });
-    </script>
-  </body>
+
+    });
+
+  });
+
+  // ======================
+  // CARD PAYMENT
+  // ======================
+  function tokenizeCard() {
+
+    if (!hostedFieldsInstance) {
+      alert("Card not ready");
+      return;
+    }
+
+    hostedFieldsInstance.tokenize(function (err, payload) {
+
+      if (err) {
+        console.error(err);
+        alert("Invalid card details");
+        return;
+      }
+
+      // ✅ SUCCESS
+      redirectToApp("success", payload.nonce);
+    });
+  }
+
+</script>
+
+</body>
 </html>
