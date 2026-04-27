@@ -10,14 +10,41 @@
 <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
 
 <style>
-/* ✅ SAME DESIGN (UNCHANGED) */
-body { font-family: sans-serif; margin: 0; background: #fff; }
-.checkout-container { max-width: 480px; margin: auto; background: #ffc800; padding: 20px; }
-.option { display: flex; flex-direction: column; padding: 8px; margin-bottom: 6px; }
-.expand-section { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-.expand-section.active { max-height: 100%; }
-.hosted-field { height: 28px; border: 1px solid #ccc; border-radius: 6px; padding: 6px; background: #fff; }
-button { padding: 12px; width: 100%; background: #00539b; color: white; border: none; }
+/* SAME YOUR DESIGN */
+body {
+  font-family: sans-serif;
+  margin: 0;
+  background: #fff;
+}
+.option {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+.expand-section {
+  max-height: 0;
+  overflow: hidden;
+  transition: 0.3s;
+}
+.expand-section.active {
+  max-height: 500px;
+}
+.hosted-field {
+  height: 28px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px;
+  background: #fff;
+}
+button {
+  padding: 12px;
+  width: 100%;
+  background: #00539b;
+  color: white;
+  border: none;
+  margin-top: 10px;
+}
 </style>
 </head>
 
@@ -33,13 +60,18 @@ button { padding: 12px; width: 100%; background: #00539b; color: white; border: 
   </div>
 
   <div id="card-section" class="expand-section">
+
     <div id="cardholder-name" class="hosted-field"></div>
+    <br/>
     <div id="card-number" class="hosted-field"></div>
+    <br/>
     <div id="cvv" class="hosted-field"></div>
+    <br/>
     <div id="expiration-date" class="hosted-field"></div>
 
-    <br/>
+    <!-- ✅ FIXED BUTTON -->
     <button onclick="tokenizeCard()">Pay with Card</button>
+
   </div>
 </div>
 
@@ -61,18 +93,16 @@ button { padding: 12px; width: 100%; background: #00539b; color: white; border: 
 
 let hostedFieldsInstance;
 
-// ✅ STATIC TOKEN (TEST)
+// ✅ STATIC TOKEN (TEST ONLY)
 const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
 
-// ✅ REDIRECT FUNCTION
+// ✅ REDIRECT
 function redirectToApp(status, nonce) {
-  const url =
+  window.location.href =
     "myapp://payment-result?status=" +
     encodeURIComponent(status) +
     "&nonce=" +
     encodeURIComponent(nonce || "");
-
-  window.location.href = url;
 }
 
 // UI toggle
@@ -95,9 +125,14 @@ function initBraintree() {
     authorization: clientToken
   }, function (err, clientInstance) {
 
-    if (err) return console.error(err);
+    if (err) {
+      console.error(err);
+      return;
+    }
 
+    // ======================
     // CARD
+    // ======================
     braintree.hostedFields.create({
       client: clientInstance,
       fields: {
@@ -107,16 +142,24 @@ function initBraintree() {
         cardholderName: { selector: '#cardholder-name' }
       }
     }, function (err, hfInstance) {
-      if (err) return console.error(err);
+      if (err) {
+        console.error(err);
+        return;
+      }
       hostedFieldsInstance = hfInstance;
     });
 
+    // ======================
     // PAYPAL
+    // ======================
     braintree.paypalCheckout.create({
       client: clientInstance
     }, function (err, paypalCheckoutInstance) {
 
-      if (err) return console.error(err);
+      if (err) {
+        console.error(err);
+        return;
+      }
 
       paypalCheckoutInstance.loadPayPalSDK(function () {
 
@@ -161,12 +204,16 @@ function initBraintree() {
 
 // CARD PAYMENT
 function tokenizeCard() {
-  if (!hostedFieldsInstance) return;
+
+  if (!hostedFieldsInstance) {
+    alert("Card not ready");
+    return;
+  }
 
   hostedFieldsInstance.tokenize(function (err, payload) {
 
     if (err) {
-      alert("Invalid card");
+      alert("Invalid card details");
       return;
     }
 
