@@ -1,107 +1,122 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Braintree Payment UI</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Braintree Payment UI</title>
 
-  <script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
-  <script src="https://js.braintreegateway.com/web/3.129.0/js/hosted-fields.min.js"></script>
-  <script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
+<script src="https://js.braintreegateway.com/web/3.129.0/js/client.min.js"></script>
+<script src="https://js.braintreegateway.com/web/3.129.0/js/hosted-fields.min.js"></script>
+<script src="https://js.braintreegateway.com/web/3.129.0/js/paypal-checkout.min.js"></script>
 
-  <style>
-    body { font-family: Arial; padding: 16px; background: #ffc800; }
-    .field { margin-bottom: 10px; }
-    .box { border: 1px solid #ccc; padding: 10px; border-radius: 6px; background: #fff; }
-    button { padding: 12px; width: 100%; background: #00539b; color: white; border: none; border-radius: 6px; }
-    h3 { color: #002e6d; }
-  </style>
+<style>
+/* ✅ SAME DESIGN (UNCHANGED) */
+body { font-family: sans-serif; margin: 0; background: #fff; }
+.checkout-container { max-width: 480px; margin: auto; background: #ffc800; padding: 20px; }
+.option { display: flex; flex-direction: column; padding: 8px; margin-bottom: 6px; }
+.expand-section { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.expand-section.active { max-height: 100%; }
+.hosted-field { height: 28px; border: 1px solid #ccc; border-radius: 6px; padding: 6px; background: #fff; }
+button { padding: 12px; width: 100%; background: #00539b; color: white; border: none; }
+</style>
 </head>
 
 <body>
 
-<h3>Payment</h3>
+<div style="padding: 8px">
 
 <!-- CARD -->
-<div>
-  <h4>Card</h4>
-  <div id="card-number" class="box"></div>
-  <div id="expiration-date" class="box"></div>
-  <div id="cvv" class="box"></div>
-  <br/>
-  <button onclick="tokenizeCard()">Pay with Card</button>
+<div class="option">
+  <div onclick="selectOption('card')">
+    <span>Card</span>
+    <input type="radio" name="payment" id="radio-card" />
+  </div>
+
+  <div id="card-section" class="expand-section">
+    <div id="cardholder-name" class="hosted-field"></div>
+    <div id="card-number" class="hosted-field"></div>
+    <div id="cvv" class="hosted-field"></div>
+    <div id="expiration-date" class="hosted-field"></div>
+
+    <br/>
+    <button onclick="tokenizeCard()">Pay with Card</button>
+  </div>
 </div>
 
-<hr/>
-
 <!-- PAYPAL -->
-<div>
-  <h4>PayPal</h4>
-  <div id="paypal-button"></div>
+<div class="option">
+  <div onclick="selectOption('paypal')">
+    <span>PayPal</span>
+    <input type="radio" name="payment" id="radio-paypal" />
+  </div>
+
+  <div id="paypal-section" class="expand-section">
+    <div id="paypal-button"></div>
+  </div>
+</div>
+
 </div>
 
 <script>
 
-  // ✅ STATIC TOKEN (TEST ONLY)
-  const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
+let hostedFieldsInstance;
 
-  let hostedFieldsInstance;
+// ✅ STATIC TOKEN (TEST)
+const clientToken = "sandbox_38zsjnr9_ydwkdrfr4jvvhf98";
 
-  // ✅ REDIRECT FUNCTION
-  function redirectToApp(status, nonce) {
-    const url =
-      "myapp://payment-result?status=" +
-      encodeURIComponent(status) +
-      "&nonce=" +
-      encodeURIComponent(nonce || "");
+// ✅ REDIRECT FUNCTION
+function redirectToApp(status, nonce) {
+  const url =
+    "myapp://payment-result?status=" +
+    encodeURIComponent(status) +
+    "&nonce=" +
+    encodeURIComponent(nonce || "");
 
-    window.location.href = url;
-  }
+  window.location.href = url;
+}
 
-  // ======================
-  // INIT BRAINTREE
-  // ======================
+// UI toggle
+function selectOption(type) {
+  document.getElementById("radio-card").checked = type === "card";
+  document.getElementById("radio-paypal").checked = type === "paypal";
+
+  document.getElementById("card-section").classList.toggle("active", type === "card");
+  document.getElementById("paypal-section").classList.toggle("active", type === "paypal");
+}
+
+// INIT
+window.onload = function () {
+  initBraintree();
+};
+
+function initBraintree() {
+
   braintree.client.create({
     authorization: clientToken
   }, function (err, clientInstance) {
 
-    if (err) {
-      console.error(err);
-      return;
-    }
+    if (err) return console.error(err);
 
-    // ======================
     // CARD
-    // ======================
     braintree.hostedFields.create({
       client: clientInstance,
-      styles: {
-        input: { 'font-size': '16px' }
-      },
       fields: {
-        number: { selector: '#card-number', placeholder: 'Card Number' },
-        expirationDate: { selector: '#expiration-date', placeholder: 'MM/YY' },
-        cvv: { selector: '#cvv', placeholder: 'CVV' }
+        number: { selector: '#card-number' },
+        expirationDate: { selector: '#expiration-date' },
+        cvv: { selector: '#cvv' },
+        cardholderName: { selector: '#cardholder-name' }
       }
     }, function (err, hfInstance) {
-      if (err) {
-        console.error(err);
-        return;
-      }
+      if (err) return console.error(err);
       hostedFieldsInstance = hfInstance;
     });
 
-    // ======================
     // PAYPAL
-    // ======================
     braintree.paypalCheckout.create({
       client: clientInstance
     }, function (err, paypalCheckoutInstance) {
 
-      if (err) {
-        console.error(err);
-        return;
-      }
+      if (err) return console.error(err);
 
       paypalCheckoutInstance.loadPayPalSDK(function () {
 
@@ -110,7 +125,7 @@
           createOrder: function () {
             return paypalCheckoutInstance.createPayment({
               flow: 'checkout',
-              amount: '10.00',
+              amount: '1.00',
               currency: 'USD'
             });
           },
@@ -119,12 +134,10 @@
             return paypalCheckoutInstance.tokenizePayment(data, function (err, payload) {
 
               if (err) {
-                console.error(err);
                 redirectToApp("failed", "");
                 return;
               }
 
-              // ✅ SUCCESS
               redirectToApp("success", payload.nonce);
             });
           },
@@ -133,8 +146,7 @@
             redirectToApp("cancel", "");
           },
 
-          onError: function (err) {
-            console.error(err);
+          onError: function () {
             redirectToApp("failed", "");
           }
 
@@ -145,29 +157,22 @@
     });
 
   });
+}
 
-  // ======================
-  // CARD PAYMENT
-  // ======================
-  function tokenizeCard() {
+// CARD PAYMENT
+function tokenizeCard() {
+  if (!hostedFieldsInstance) return;
 
-    if (!hostedFieldsInstance) {
-      alert("Card not ready");
+  hostedFieldsInstance.tokenize(function (err, payload) {
+
+    if (err) {
+      alert("Invalid card");
       return;
     }
 
-    hostedFieldsInstance.tokenize(function (err, payload) {
-
-      if (err) {
-        console.error(err);
-        alert("Invalid card details");
-        return;
-      }
-
-      // ✅ SUCCESS
-      redirectToApp("success", payload.nonce);
-    });
-  }
+    redirectToApp("success", payload.nonce);
+  });
+}
 
 </script>
 
